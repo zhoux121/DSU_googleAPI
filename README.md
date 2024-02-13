@@ -12,4 +12,4 @@
 ## Second install requirement.txt
 #### pip install -r requirements.txt
 ## Third run code
-#### python './google_vision_api'
+#### python ./google_vision_api
