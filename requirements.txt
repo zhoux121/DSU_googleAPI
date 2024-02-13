@@ -1,0 +1,9 @@
+PyYAML
+ipython
+google-cloud
+google-cloud-vision
+pandas
+Pillow
+reportlab
+tempfile
+requests

@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "inner-legacy-412817",
+  "private_key_id": "97aa01aafacede67bfe23157c027d73b9ccf46c8",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDAon3v513EISP4\nhOSod975cOttaB2WTm8ykULPfSYobW3zLN81BAqrYNsIqmuEbwef5Ya/f7UatvHd\nPyh6jloTd6o7jCX6bxq/AGbLTh4U8U04DYjc+IVjLUWt6HmOWEdiO6zqcoFS149v\nucUXGNbTm5kd8jIuzH0QvaCerkE2X3SvtqZxlaBx2TwbRfJ0pBSNtoZLfoOf4HZP\nsO1+2jIuvyo/lRkmtb4SLdawC56ES94WUB13ndiqTaRyeg+tSZTrgRYndnHdL/IA\n64PPr6frUUReVAcfg4dm9RDGKdLnfVJ1gJrNBkq7BGoqMrvydLDvvJFezvl0yKM8\n9H9hezhZAgMBAAECggEAEy9buYviY8klKvgZScn+c/tSByhqYfDX1EJxU/bT2Qzk\n+WYLqN0JLv5LcjZ+1Ma2DK+wVtwiLlHwDqfeoS4SPIQbeSjBE4sDL+ibVD4ocs+B\ncEawzckWh8UXfnV7vbh/C4KD+ymCRbzgNTFcNquroZGKk1futYh6IDOyjnsuVXrJ\n84GFlIZJjjh6p2SSNO7ivFTIJQds2d+EB9sfDJJLMKPGhPGI/ler2ZnGPh1YeII3\nj1V9iM1lgQc0KhUjj7iutyMFzI93R5pSnTOUS9lC8fRko2LXA4/WwXFP/EYlGs5m\n0Cl8v7UssFVLwid6OY7Me3L6ppSHrnW3W+5Y2NzD8QKBgQDsWC3TBIU+Nn+2YuxR\n6DaL8K1XUyY26xZeMSVE+kSOWdCtPSemtYFe8HOcgoz87gS/EK76fAhTbb6Jwzrd\n3c7pfNn/cmhXvfeD9ZQOxsxbxZsF4hq6QyO7/K1dfJ47FZCws/XghWTqkTaMQoGf\nUNhFH9yYckMPvIyvaEyt7MK0NQKBgQDQp7lrDicXBh/fEnkFK/BZ2kelHP6uybgs\ndfb4+UFwun9d9Pjr/rrG3MpagDCsu1C6UXtzI/Ima8sbGtHv2FVuXwN1U4ogl0Eg\n6fTVlO06hz4z01sN7viXAQGiM+3UGw2NxSN13pkBgF32tvggoWn7AC2MiFP4+jCB\nv6TsquawFQKBgH/6v9WkfQJTQJTivFUeCWt9yF+hBvB2HIak1imj27u5puYoV3BO\nmN9wFSqLBw1vVeKghh/dSiTjKGow7Y92rLSChwlsSlQ46e7q7GGUBNUtC+UDqrVx\n5cfF65rUAFq+Mrt8t4f8s8jRGViaKta6UGId/rYOKYI793KEaAFGU6iBAoGBAK1G\n7IOMMEg9jNA6zgfOcn6b+C2Vg6dx26IIoP4oOQE9z7IeU23gkAm/p8g6drGrqSHh\nswxuiJUBpZ0vy7JLzL6o5v1TT/06vxpvUCTi1ZNqZuyxFAfhMc5tRocGavZfNQVL\n9uPW5OfLS70sO6kVgyawAiOXv2yfkRLfLT5husv1AoGALk6hnvrCtq+wC1pcuB++\nLGYUE0EZnEXleAxPJkAH2BHZ56dJD/70ec7200eT7yXALFKnuQnIYZWy2+uhm9AU\nWDj935E2ImJL2xDHHR7Ovc+658I32UxIzpFveLmByv1BcxhhMXHGVzzf8ZAJt4dB\nW6VS3SRbrdHYrO0ypKalfhw=\n-----END PRIVATE KEY-----\n",
+  "client_email": "books-498@inner-legacy-412817.iam.gserviceaccount.com",
+  "client_id": "114818900749005319151",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/books-498%40inner-legacy-412817.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
