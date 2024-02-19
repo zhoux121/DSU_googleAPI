@@ -12,4 +12,5 @@
 ## Second install requirement.txt
 #### pip install -r requirements.txt
 ## Third run code
+#### Edit the config.yml file to set MODE to 'download' before selecting the output mode <'json'>, <'pdf'>, <'json_pdf'>/<'pdf_json'>
 #### python ./google_vision_api
