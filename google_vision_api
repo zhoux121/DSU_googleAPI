@@ -22,6 +22,8 @@ import json
 import urllib.request
 import csv
 import yaml
+import PyPDF2
+
 
 config_file_path = 'config.yml'
 with open(config_file_path, 'r') as file:
@@ -29,14 +31,13 @@ with open(config_file_path, 'r') as file:
 
 # Accessing configuration data
 csv_input_file = config['csv_input_file']
-csv_output_file = config['csv_output_file']
+csv_output_file = config['csv_split_output_file']
+csv_combine_output_file = config['csv_combine_output_file']
 font_path = config['font_path']
 image_directory_path = config['image_directory_path']
 GOOGLE_APPLICATION_CREDENTIALS = config['GOOGLE_APPLICATION_CREDENTIALS']
-MODE = config['MODE']
 # please see the google_API_intro.pdf to see how to get api key json file
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = GOOGLE_APPLICATION_CREDENTIALS
-
 
 # read csv from input node and return link
 def read_csv_from_node(csv_input_file):
@@ -53,15 +54,22 @@ def read_csv_from_node(csv_input_file):
 # process data from node
 def process_node(node_id):
     res = {}
+    res[node_id] = {}
     with urllib.request.urlopen("https://menus.digital.utsc.utoronto.ca/node/" + str(node_id) + "/children_rest") as url:
         node_data_from_link = json.load(url)
         # if node id is incorrect (unable to access) skip
         # from the web end the page will return []
         if len(node_data_from_link) > 1:
             for node_data in node_data_from_link:
-                res[node_data['nid']] = {'Media_id':node_data['field_islandora_object_media'] , 'Title':node_data['title']}
+                res[node_id][node_data['nid']] = {'Media_id':node_data['field_islandora_object_media'] , 'Title':node_data['title']}
             return res
         return 0
+
+'''
+{16264: 
+{'16266': {'Media_id': '36086', 'Title': 'Sushi One - Page 1'}, 
+'16265': {'Media_id': '36085', 'Title': 'Sushi One - Page 2'}}}
+'''
 
 # access link after read_csv_from_node 
 import urllib.request, json 
@@ -86,15 +94,16 @@ def access_node(data):
 
 # process media after we have the result for access_node
 def process_media(nid_title_media_id):
-    for nid in list(nid_title_media_id.keys()):
-        with urllib.request.urlopen("https://menus.digital.utsc.utoronto.ca/media/" + str((nid_title_media_id[nid]['Media_id'])) + "?_format=json") as url:
-            media_data_from_link = json.load(url)
-            target_id = media_data_from_link.get('field_media_image')[0]['target_id']
-            # if target_id is not empty add target_id else remove node id
-            if (target_id) > 0:
-                nid_title_media_id[nid]['target_id'] = target_id
-            else:
-                del nid_title_media_id[nid]
+    for nodeid in list(nid_title_media_id.keys()):
+        for node in list(nid_title_media_id[nodeid].keys()):
+            with urllib.request.urlopen("https://menus.digital.utsc.utoronto.ca/media/" + str((nid_title_media_id[nodeid][node]['Media_id'])) + "?_format=json") as url:
+                media_data_from_link = json.load(url)
+                target_id = media_data_from_link.get('field_media_image')[0]['target_id']
+                # if target_id is not empty add target_id else remove node id
+                if (target_id) > 0:
+                    nid_title_media_id[nodeid][node]['target_id'] = target_id
+                else:
+                    del nid_title_media_id[nodeid][node]
     return(nid_title_media_id)
 # return example
 '''
@@ -102,21 +111,29 @@ def process_media(nid_title_media_id):
 '16265': {'Media_id': '36085', 'Title': 'Sushi One - Page 2', 'target_id': 59806}, 
 '16268': {'Media_id': '36087', 'Title': 'Harden &amp; L. C. Corp. - Page 1', 'target_id': 59812}, 
 '16269': {'Media_id': '36088', 'Title': 'Harden &amp; L. C. Corp. - Page 2', 'target_id': 59815}, 
-'16272': {'Media_id': '36090', 'Title': 'Sung Lin - Page 1', 'target_id': 59821}, 
+'16272': {'Media_id': '36090', 'Title': 'Sung Lin - Page 1', 'target_id': 59821},
 '16271': {'Media_id': '36089', 'Title': 'Sung Lin - Page 2', 'target_id': 59818}}
 '''
 
 def process_file(mid_data):
-    for nid in list(mid_data.keys()):
-        with urllib.request.urlopen("https://menus.digital.utsc.utoronto.ca/file/" + str((mid_data[nid]['target_id'])) + "?_format=json") as url:
-            media_data_from_link = json.load(url)
-            url_link = media_data_from_link['uri'][0]['url']
-            local_file_name = url_link.split('/')[-1]         
-            mid_data[nid]['local_path'] = local_file_name
-            response = requests.get("https://menus.digital.utsc.utoronto.ca" + url_link)
-            if response.status_code == 200:
-                with open(local_file_name, 'wb') as file:
-                    file.write(response.content)
+    base_dir = os.path.expanduser(image_directory_path+'original_image')
+    if not os.path.exists(base_dir):
+        os.makedirs(base_dir)
+    for nodeid in list(mid_data.keys()):
+        for node in list(mid_data[nodeid].keys()):
+            with urllib.request.urlopen("https://menus.digital.utsc.utoronto.ca/file/" + str((mid_data[nodeid][node]['target_id'])) + "?_format=json") as url:
+                media_data_from_link = json.load(url)
+                url_link = media_data_from_link['uri'][0]['url']
+                local_file_name = url_link.split('/')[-1] 
+                title_name = mid_data[nodeid][node]['Title'].replace(" ", "")
+                title_name = title_name.replace("-", "")
+                local_file_name = str(nodeid)+ '_' + str(node) + '_' + title_name + '_' + local_file_name
+                full_path = os.path.join(base_dir,local_file_name)
+                mid_data[nodeid][node]['local_path'] = full_path
+                response = requests.get("https://menus.digital.utsc.utoronto.ca" + url_link)
+                if response.status_code == 200:
+                    with open(full_path, 'wb') as file:
+                        file.write(response.content)
 
 # save file to local path and full out format csv. Input csv
 def get_mid_data(csv_input_file):
@@ -129,27 +146,27 @@ def download_file(csv_input_file):
     process_file(mid_data)
 
 # read all the images from directory or local path
-def find_all_img_path(directory_path):
+def find_all_img_path(image_directory_path):
+    abs_path = os.path.join(image_directory_path, 'original_image')
     image_extensions = ['.jpg', '.png', '.jp2', '.tiff']
     image_paths = []
     desired_prefix = 'OBJ.0_'
     # Walk through the directory
-    for root, dirs, files in os.walk(directory_path):
+    for root, dirs, files in os.walk(abs_path):
         for file in files:
             full_path = os.path.join(root, file)
             if any(file.endswith(ext) for ext in image_extensions) and desired_prefix in file:
-                if root == directory_path:
-                    image_paths.append(full_path)
+                image_paths.append(full_path)
 
     return image_paths
 # return example
 '''
-['C:\\Users\\zxx91\\OBJ.0_10762.jp2', 
-'C:\\Users\\zxx91\\OBJ.0_10763.jp2', 
-'C:\\Users\\zxx91\\OBJ.0_10764.jp2', 
-'C:\\Users\\zxx91\\OBJ.0_10765.jp2', 
-'C:\\Users\\zxx91\\OBJ.0_10766.jp2', 
-'C:\\Users\\zxx91\\OBJ.0_10767.jp2']
+"\n\n['C:\\Users\\zxx91\\OBJ.0_10762.jp2',
+\n'C:\\Users\\zxx91\\OBJ.0_10763.jp2', 
+\n'C:\\Users\\zxx91\\OBJ.0_10764.jp2', 
+\n'C:\\Users\\zxx91\\OBJ.0_10765.jp2', 
+\n'C:\\Users\\zxx91\\OBJ.0_10766.jp2', 
+\n'C:\\Users\\zxx91\\OBJ.0_10767.jp2']\n"
 '''
 
 # Initialize the client for the Vision API
@@ -176,25 +193,35 @@ def detectText(img):
 
 # read all images path from local path and save to target path
 def save_json(image_directory_path):
+    base_dir = os.path.expanduser(image_directory_path+'json')
+    if not os.path.exists(base_dir):
+        os.makedirs(base_dir)
     all_img_path = find_all_img_path(image_directory_path)
     json_file_path = []
     for img in all_img_path:
+        image_path = img.split('\\')[-1]
+        node_id = image_path.split('_')[0]
+        media_id = image_path.split('_')[1]
+        node_dir = os.path.expanduser(base_dir+'\\'+str(node_id))
+        media_dir = os.path.expanduser(node_dir+'\\'+str(media_id))
+        if not os.path.exists(media_dir):
+            os.makedirs(media_dir)
         response = detectText(img)
-        json_file_name = img.replace('.jp2', '.json')
-        json_file_path = json_file_path + [json_file_name]
+        json_file_name = image_path.replace('.jp2', '.json')
+
+        json_file_path = json_file_path + [media_dir+'\\'+json_file_name]
         # Extracting the data from the response
         extracted_data = [{
             'description': text.description,
             'boundingPoly': [{'x': vertex.x, 'y': vertex.y} for vertex in text.bounding_poly.vertices]
         } for text in response]
-
         # Writing the extracted data to a JSON file
-        with open(json_file_name, 'w', encoding='utf-8') as file:
+        with open(media_dir+'\\'+json_file_name, 'w', encoding='utf-8') as file:
             json.dump(extracted_data, file, ensure_ascii=False, indent=4)
     return json_file_path
 
 # generate pdf/A with selectable text and return file name
-def create_pdf_with_selectable_text(image_directory_path, texts, font_path):
+def create_pdf_with_selectable_text(media_dir,image_directory_path, texts, font_path):
     pdfmetrics.registerFont(TTFont('NotoSans', font_path))
     # Open the image and get its dimensions
     with Image.open(image_directory_path) as img:
@@ -207,6 +234,7 @@ def create_pdf_with_selectable_text(image_directory_path, texts, font_path):
             temp_img_path = temp_img_file.name
         # Create a PDF
         pdf_path = image_directory_path.replace('.jp2', '.pdf')
+        pdf_path = media_dir+pdf_path.split('\\')[-1]
         c = canvas.Canvas(pdf_path, pagesize=letter)
         # Add the image to the PDF
         c.drawImage(temp_img_path, 0, 0, width=letter[0], height=letter[1])
@@ -228,11 +256,21 @@ def create_pdf_with_selectable_text(image_directory_path, texts, font_path):
 
 # call create_pdf_with_selectable_text to process all images from target image path
 def generate_pdf(image_directory_path):
+    base_dir = os.path.expanduser(image_directory_path+'pdf')
+    if not os.path.exists(base_dir):
+        os.makedirs(base_dir)
     all_img_path = find_all_img_path(image_directory_path)
     pdf_file_path = []
     for img in all_img_path:
+        image_path = img.split('\\')[-1]
+        node_id = image_path.split('_')[0]
+        media_id = image_path.split('_')[1]
+        node_dir = os.path.expanduser(base_dir+'\\'+str(node_id))
+        media_dir = os.path.expanduser(node_dir+'\\'+str(media_id)+'\\')
+        if not os.path.exists(media_dir):
+            os.makedirs(media_dir)
         response = detectText(img)
-        pdf_file = create_pdf_with_selectable_text(img, response, font_path)
+        pdf_file = create_pdf_with_selectable_text(media_dir, img, response, font_path)
         pdf_file_path = pdf_file_path + [pdf_file]
     return pdf_file_path
 
@@ -257,14 +295,24 @@ def output_csv_json(csv_input_file, csv_output_file, image_directory_path):
     all_img_path = find_all_img_path(image_directory_path)
     json_file_path = save_json(image_directory_path)
     transformed_data = []
-    headers = ["Node_id", "Title", "Media_id", "Local_File_Path", "OCR_File_Path"]
-    for (node_id, details), img_file, json_file in zip(mid_data.items(), all_img_path, json_file_path):
-        row = details.copy()
-        row['Node_id'] = node_id
-        row['Local_File_Path'] = img_file
-        row['OCR_File_Path'] = json_file
-        row.pop('target_id', None)
-        transformed_data.append(row)
+    headers = ["Main_id", "Node_id", "Title", "Media_id", "Local_File_Path", "OCR_File_Path"]
+    img_json_pairs = zip(all_img_path, json_file_path)
+    # Correct iteration over mid_data
+    for main_id, nodes in mid_data.items():
+        for node_id, details in nodes.items():
+            if img_json_pairs: 
+                img_path, json_path = next(img_json_pairs)
+            row = {
+                "Main_id": main_id,
+                "Node_id": node_id,
+                "Title": details['Title'],
+                "Media_id": details['Media_id'],
+                "Local_File_Path": img_path,
+                "OCR_File_Path": json_path 
+            }
+            # Remove target_id if exists
+            row.pop('target_id', None)
+            transformed_data.append(row)
     write_csv(csv_output_file, transformed_data, headers)
 
 # output csv with pdf/A
@@ -273,14 +321,24 @@ def output_csv_pdf(csv_input_file, csv_output_file, image_directory_path):
     all_img_path = find_all_img_path(image_directory_path)
     pdf_file_path = generate_pdf(image_directory_path)
     transformed_data = []
-    headers = ["Node_id", "Title", "Media_id", "Local_File_Path", "PDF_File"]
-    for (node_id, details), img_file, pdf_file in zip(mid_data.items(), all_img_path, pdf_file_path):
-        row = details.copy()
-        row['Node_id'] = node_id
-        row['Local_File_Path'] = img_file
-        row['PDF_File'] = pdf_file
-        row.pop('target_id', None)
-        transformed_data.append(row)
+    headers = ["Main_id", "Node_id", "Title", "Media_id", "Local_File_Path", "PDF_File_Path"]
+    img_pdf_pairs = zip(all_img_path, pdf_file_path)
+    # Correct iteration over mid_data
+    for main_id, nodes in mid_data.items():
+        for node_id, details in nodes.items():
+            if img_pdf_pairs: 
+                img_path, pdf_path = next(img_pdf_pairs)
+            row = {
+                "Main_id": main_id,
+                "Node_id": node_id,
+                "Title": details['Title'],
+                "Media_id": details['Media_id'],
+                "Local_File_Path": img_path,
+                "PDF_File_Path": pdf_path 
+            }
+            # Remove target_id if exists
+            row.pop('target_id', None)
+            transformed_data.append(row)
     write_csv(csv_output_file, transformed_data, headers)
 
 # output csv with pdf/A and json
@@ -290,32 +348,79 @@ def output_csv_pdf_json(csv_input_file, csv_output_file, image_directory_path):
     all_img_path = find_all_img_path(image_directory_path)
     pdf_file_path = generate_pdf(image_directory_path)
     transformed_data = []
-    headers = ["Node_id", "Title", "Media_id", "Local_File_Path", "OCR_File_Path", "PDF_File"]
-    for (node_id, details), img_file, json_file, pdf_file in zip(mid_data.items(), all_img_path, json_file_path, pdf_file_path):
-        row = details.copy()
-        row['Node_id'] = node_id
-        row['Local_File_Path'] = img_file
-        row['OCR_File_Path'] = json_file
-        row['PDF_File'] = pdf_file
-        row.pop('target_id', None)
-        transformed_data.append(row)
+    headers = ["Main_id", "Node_id", "Title", "Media_id", "Local_File_Path", "PDF_File_Path", "OCR_File_Path"]
+    img_pdf_pairs = zip(all_img_path, pdf_file_path,json_file_path)
+    # Correct iteration over mid_data
+    for main_id, nodes in mid_data.items():
+        for node_id, details in nodes.items():
+            if img_pdf_pairs: 
+                img_path, pdf_path, json_path = next(img_pdf_pairs)
+            row = {
+                "Main_id": main_id,
+                "Node_id": node_id,
+                "Title": details['Title'],
+                "Media_id": details['Media_id'],
+                "Local_File_Path": img_path,
+                "PDF_File_Path": pdf_path,
+                "OCR_File_Path": json_path
+            }
+            # Remove target_id if exists
+            row.pop('target_id', None)
+            transformed_data.append(row)
     write_csv(csv_output_file, transformed_data, headers)
 
-# select output mode
-def output_mode(MODE='json'):
-    if MODE == 'json':
-        output_csv_json(csv_input_file, csv_output_file, image_directory_path)
-        print(MODE, "completed")
-    elif MODE == 'pdf':
-        output_csv_pdf(csv_input_file, csv_output_file, image_directory_path)
-        print(MODE, "completed")
-    elif MODE == 'pdf_json' or MODE == 'json_pdf':
-        output_csv_pdf_json(csv_input_file, csv_output_file, image_directory_path)
-        print(MODE, "completed")
-    elif MODE == 'download':
-        download_file(csv_input_file)
-        print(MODE, "completed")
-    else:
-        print("Please try again mode should be 1. <download>, 2. <json>, <pdf>, <json_pdf>/<pdf_json>")
+#read multiple PDF files from path
+def read_all_pdf(image_directory_path):
+    abs_path = os.path.join(image_directory_path, 'pdf')
+    pdf_extensions = ['.pdf']
+    pdf_paths = []
+    # Walk through the directory
+    for root, dirs, files in os.walk(abs_path):
+        for file in files:
+            full_path = os.path.join(root, file)
+            # Correctly check if file ends with any of the extensions in pdf_extensions
+            if any(file.endswith(ext) for ext in pdf_extensions):
+                pdf_paths.append(full_path)
+    return pdf_paths
 
-output_mode(MODE)
+#Combining multiple PDF files into a single PDF
+def combine_pdf(filtered_paths, output_filename):
+    pdf_writer = PyPDF2.PdfWriter()
+    for pdf_file in filtered_paths:
+        # Open the PDF file
+        with open(pdf_file, 'rb') as file:
+            pdf_reader = PyPDF2.PdfReader(file)
+            # Add all its pages to the writer object
+            for page_num in range(len(pdf_reader.pages)):
+                page = pdf_reader.pages[page_num]
+                pdf_writer.add_page(page)
+    
+    # Write out the combined PDF to a new file
+    with open(output_filename, 'wb') as out_file:
+        pdf_writer.write(out_file)
+
+# save multiple PDF files into a single PDF
+def save_provessed_pdf(image_directory_path):
+    abs_path = os.path.join(image_directory_path, 'pdf')
+    pdf_path = read_all_pdf(image_directory_path)
+    node_data = read_csv_from_node(csv_input_file)
+    nid_title_media_id = access_node(node_data)
+    node_list = []
+    path_list = []
+    for nodeid in list(nid_title_media_id.keys()):
+        filtered_paths = [path for path in pdf_path if f'\\{nodeid}\\' in path.replace('/', '\\')]
+        combine_pdf(filtered_paths, abs_path+'\\'+str(nodeid)+'\\'+str(nodeid)+'.pdf')
+        node_list = node_list + [nodeid]
+        path_list = path_list + [abs_path+'\\'+str(nodeid)+'\\'+str(nodeid)+'.pdf']
+    headers = ["Main_id", "PDF_File_Path"]
+    transformed_data = []
+    for main_id, pdf_path in zip(node_list, path_list):
+        transformed_data.append({"Main_id": main_id, "PDF_File_Path": pdf_path})
+    write_csv(csv_combine_output_file,transformed_data, headers )
+
+def output_mode():
+    download_file(csv_input_file)
+    output_csv_pdf_json(csv_input_file, csv_output_file, image_directory_path)
+    save_provessed_pdf(image_directory_path)
+    print("completed")
+output_mode()

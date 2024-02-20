@@ -7,3 +7,4 @@ Pillow
 reportlab
 tempfile
 requests
+pypdf2
