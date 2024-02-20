@@ -7,10 +7,11 @@
 # Usage
 ## First edit config.yml
 #### Change csv_input_file to your input CSV file path
-#### Change csv_output_file to your output CSV file path
+#### Change csv_output_file to your output split CSV file path
+#### change csv_combine_output_file to your output combine csv file path
 #### Change image_directory_path to your image save path
+#### GOOGLE_APPLICATION_CREDENTIALS: <your_google_api_key.json>
 ## Second install requirement.txt
 #### pip install -r requirements.txt
 ## Third run code
-#### Edit the config.yml file to set MODE to 'download' before selecting the output mode <'json'>, <'pdf'>, <'json_pdf'>/<'pdf_json'>
 #### python ./google_vision_api
