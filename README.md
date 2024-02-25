@@ -14,6 +14,7 @@
 #### GOOGLE_APPLICATION_CREDENTIALS: <your_google_api_key.json>
 #### csv_temp_output: 'csv_final_output.csv'
 #### csv_final_output: 'csv_final_output.csv' final csv output on going.
+#### img_quality: 50 (10 - 100), Lower numbers mean lower image quality and storage space
 ## Second install requirement.txt
 #### pip install -r requirements.txt
 ## Third run code
