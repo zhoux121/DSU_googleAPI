@@ -1,9 +1,7 @@
 csv_input_file: 'node.csv'
-csv_split_output_file: 'csv_split_output.csv'
-csv_combine_output_file: 'csv_combine_output.csv'
+csv_split_output_file: 'csv_output.csv'
 font_path: 'MontserratAlternates-Thin.ttf'
-image_directory_path: 'C:/Users/zxx91/Desktop/DSU_googleAPI/'
+image_directory_path: 'C:/Users/zxx91/Desktop/DSU/'
 GOOGLE_APPLICATION_CREDENTIALS: 'inner-legacy-412817-c457e22e9329.json'
-csv_temp_output: 'csv_final_output.csv'
-csv_final_output: 'csv_final_output.csv'
 img_quality: 50
+HAVE_OCR: False

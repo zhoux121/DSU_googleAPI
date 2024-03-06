@@ -2,8 +2,10 @@
 from IPython.display import display
 import io
 import os
+import numpy as np
 from google.cloud import vision
 from google.cloud.vision_v1 import types
+from google.protobuf.json_format import MessageToJson
 import pandas as pd
 from PIL import Image
 import tempfile
@@ -31,13 +33,11 @@ with open(config_file_path, 'r') as file:
 # Accessing configuration data
 csv_input_file = config['csv_input_file']
 csv_output_file = config['csv_split_output_file']
-csv_combine_output_file = config['csv_combine_output_file']
 font_path = config['font_path']
 image_directory_path = config['image_directory_path']
 GOOGLE_APPLICATION_CREDENTIALS = config['GOOGLE_APPLICATION_CREDENTIALS']
-csv_temp_output = config['csv_temp_output']
 img_quality = config['img_quality']
-csv_final_output = config['csv_final_output']
+HAVE_OCR = config['HAVE_OCR']
 # please see the google_API_intro.pdf to see how to get api key json file
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = GOOGLE_APPLICATION_CREDENTIALS
 
@@ -161,7 +161,6 @@ def find_all_img_path(image_directory_path):
             full_path = os.path.join(root, file)
             if any(file.endswith(ext) for ext in image_extensions) and desired_prefix in file:
                 image_paths.append(full_path)
-
     return image_paths
 # return example
 '''
@@ -189,15 +188,13 @@ def detectText(img):
                 content = image_file.read()
     # Prepare the image for the Vision API
     image = types.Image(content=content)
-
     # Perform text detection
     response = client.text_detection(image=image)
-    texts = response.text_annotations
-    return texts
+    return response
 
-# read all images path from local path and save to target path
-def save_json(image_directory_path):
-    base_dir = os.path.expanduser(image_directory_path+'pdf')
+# save google vision api result into json
+def save_API_json(image_directory_path):
+    base_dir = os.path.expanduser(image_directory_path + 'pdf')
     if not os.path.exists(base_dir):
         os.makedirs(base_dir)
     all_img_path = find_all_img_path(image_directory_path)
@@ -211,79 +208,17 @@ def save_json(image_directory_path):
         if not os.path.exists(media_dir):
             os.makedirs(media_dir)
         response = detectText(img)
+        response_json = MessageToJson(response._pb)
         json_file_name = image_path.replace('.jp2', '.json')
-
         json_file_path = json_file_path + [media_dir+'\\'+json_file_name]
-        # Extracting the data from the response
-        extracted_data = [{
-            'description': text.description,
-            'boundingPoly': [{'x': vertex.x, 'y': vertex.y} for vertex in text.bounding_poly.vertices]
-        } for text in response]
-        # Writing the extracted data to a JSON file
-        with open(media_dir+'\\'+json_file_name, 'w', encoding='utf-8') as file:
-            json.dump(extracted_data, file, ensure_ascii=False, indent=4)
+
+        with open(media_dir+'\\'+json_file_name, "w") as json_file:
+            json_file.write(response_json)
     return json_file_path
 
-# generate pdf/A with selectable text and return file name
-def create_pdf_with_selectable_text(media_dir,image_directory_path, texts, font_path):
-    pdfmetrics.registerFont(TTFont('NotoSans', font_path))
-    # Open the image and get its dimensions
-    with Image.open(image_directory_path) as img:
-        img_width, img_height = img.size
-        scale_w = letter[0] / img_width
-        scale_h = letter[1] / img_height
-        # Save the image to a temporary file
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as temp_img_file:
-            #img.save(temp_img_file, format='JPEG')
-            img.save(temp_img_file, format='JPEG', quality=img_quality)
-            temp_img_path = temp_img_file.name
-        # Create a PDF
-        pdf_path = image_directory_path.replace('.jp2', '.pdf')
-        pdf_path = media_dir+pdf_path.split('\\')[-1]
-        c = canvas.Canvas(pdf_path, pagesize=letter)
-        # Add the image to the PDF
-        c.drawImage(temp_img_path, 0, 0, width=letter[0], height=letter[1])
-        # Add invisible text objects to the PDF
-        for text in texts[1:]:  # Skip the first element
-            vertices = [(int(vertex.x * scale_w), int(vertex.y * scale_h)) for vertex in text.bounding_poly.vertices]
-            x0, y0 = vertices[0]
-            y0 = letter[1] - y0 - (text.bounding_poly.vertices[2].y - text.bounding_poly.vertices[0].y) * scale_h
-
-            # Set font size, invisible fill color and write text
-            c.setFont("NotoSans", 12)
-            c.setFillColorRGB(0, 0, 0, alpha=0)
-            c.drawString(x0, y0, text.description)
-        # Finalize the PDF
-        c.save()
-        # Remove the temporary image file
-        os.remove(temp_img_path)
-    return pdf_path
-
-# call create_pdf_with_selectable_text to process all images from target image path
-def generate_pdf(image_directory_path):
-    base_dir = os.path.expanduser(image_directory_path+'pdf')
-    if not os.path.exists(base_dir):
-        os.makedirs(base_dir)
-    all_img_path = find_all_img_path(image_directory_path)
-    pdf_file_path = []
-    for img in all_img_path:
-        image_path = img.split('\\')[-1]
-        node_id = image_path.split('_')[0]
-        media_id = image_path.split('_')[1]
-        node_dir = os.path.expanduser(base_dir+'\\'+str(node_id))
-        media_dir = os.path.expanduser(node_dir+'\\'+str(media_id)+'\\')
-        if not os.path.exists(media_dir):
-            os.makedirs(media_dir)
-        response = detectText(img)
-        pdf_file = create_pdf_with_selectable_text(media_dir, img, response, font_path)
-        pdf_file_path = pdf_file_path + [pdf_file]
-    return pdf_file_path
-
-# generate both json and pdf
-def both_json_pdf(image_directory_path):
-    json_file_path = save_json(image_directory_path)
-    pdf_A_file_path = generate_pdf(image_directory_path)
-    return json_file_path, pdf_A_file_path
+# in this part, we will write the csv for header 
+# "Node_id", "Title", "Media_id", "Local_File_Path", "OCR_File_Path"
+# The PDF/A will use OCR json
 
 # write csv file
 def write_csv(csv_output_file, transformed_data, headers):
@@ -298,161 +233,158 @@ def write_csv(csv_output_file, transformed_data, headers):
 def output_csv_json(csv_input_file, csv_output_file, image_directory_path):
     mid_data = get_mid_data(csv_input_file)
     all_img_path = find_all_img_path(image_directory_path)
-    json_file_path = save_json(image_directory_path)
+    json_file_path = save_API_json(image_directory_path)
     transformed_data = []
-    headers = ["Main_id", "Node_id", "Title", "Media_id", "Local_File_Path", "OCR_File_Path"]
+    headers = ["Node_id", "Title", "Media_id", "Local_File_Path", "OCR_File_Path"]
     img_json_pairs = zip(all_img_path, json_file_path)
-    # Correct iteration over mid_data
+    csv_node = read_csv_from_node(csv_input_file)
+    node_title = csv_node['Title']
+    node_csv_id = csv_node['Node_id']
     for main_id, nodes in mid_data.items():
+        if main_id in node_csv_id.values:
+            title_index = node_csv_id[node_csv_id == main_id].idxmax()
+            row = {
+                "Node_id": main_id,
+                "Title": node_title[title_index],
+                "Media_id": None,
+                "Local_File_Path": None,
+                "OCR_File_Path": None 
+            }
+            transformed_data.append(row)
         for node_id, details in nodes.items():
             if img_json_pairs: 
                 img_path, json_path = next(img_json_pairs)
             row = {
-                "Main_id": main_id,
                 "Node_id": node_id,
                 "Title": details['Title'],
                 "Media_id": details['Media_id'],
                 "Local_File_Path": img_path,
                 "OCR_File_Path": json_path 
             }
-            # Remove target_id if exists
             row.pop('target_id', None)
             transformed_data.append(row)
     write_csv(csv_output_file, transformed_data, headers)
 
-# output csv with pdf/A
-def output_csv_pdf(csv_input_file, csv_output_file, image_directory_path):
-    mid_data = get_mid_data(csv_input_file)
-    all_img_path = find_all_img_path(image_directory_path)
-    pdf_file_path = generate_pdf(image_directory_path)
-    transformed_data = []
-    headers = ["Main_id", "Node_id", "Title", "Media_id", "Local_File_Path", "PDF_File_Path"]
-    img_pdf_pairs = zip(all_img_path, pdf_file_path)
-    # Correct iteration over mid_data
-    for main_id, nodes in mid_data.items():
-        for node_id, details in nodes.items():
-            if img_pdf_pairs: 
-                img_path, pdf_path = next(img_pdf_pairs)
-            row = {
-                "Main_id": main_id,
-                "Node_id": node_id,
-                "Title": details['Title'],
-                "Media_id": details['Media_id'],
-                "Local_File_Path": img_path,
-                "PDF_File_Path": pdf_path 
-            }
-            # Remove target_id if exists
-            row.pop('target_id', None)
-            transformed_data.append(row)
-    write_csv(csv_output_file, transformed_data, headers)
+# generate pdf/A with selectable text and return file name
+def create_pdf_with_selectable_text(media_dir, image_directory_path, json_data, font_path):
+    pdfmetrics.registerFont(TTFont('NotoSans', font_path))    
+    texts = json_data['fullTextAnnotation']['pages'][0]['blocks'] 
+    # Open the image and get its dimensions
+    with Image.open(image_directory_path) as img:
+        img_width, img_height = img.size
+        scale_w = letter[0] / img_width
+        scale_h = letter[1] / img_height
+        # Save the image to a temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as temp_img_file:
+            img.save(temp_img_file, format='JPEG', quality=img_quality)
+            temp_img_path = temp_img_file.name
+        
+        # Create a PDF
+        pdf_path = os.path.join(media_dir, os.path.basename(image_directory_path).replace('.jp2', '.pdf'))
+        c = canvas.Canvas(pdf_path, pagesize=letter)
+        # Add the image to the PDF
+        c.drawImage(temp_img_path, 0, 0, width=letter[0], height=letter[1])
+        texts = json_data['textAnnotations'][1:]  # Skip the first summary item
+        for text in texts:
+            vertices = text['boundingPoly']['vertices']
+            if len(vertices) >= 4:  # Ensure there are enough points to define a rectangle
+                x0, y0 = int(vertices[0]['x'] * scale_w), letter[1] - int(vertices[0]['y'] * scale_h) - 2
+                text_height = (int(vertices[3]['y'] * scale_h) - int(vertices[0]['y'] * scale_h)) * scale_h
+                # Set font and write text, making it "invisible"
+                c.setFont("NotoSans", 9)  # Set desired font size
+                c.setFillColorRGB(0, 0, 0, 0)  # Assuming intention to make text invisible; this needs adjustment
+                c.drawString(x0, y0 - text_height, text['description'])
+        c.save()
+        # Remove the temporary image file
+        os.remove(temp_img_path)
+    return pdf_path
 
-# output csv with pdf/A and json
-def output_csv_pdf_json(csv_input_file, csv_output_file, image_directory_path):
-    mid_data = get_mid_data(csv_input_file)
-    json_file_path = save_json(image_directory_path)
-    all_img_path = find_all_img_path(image_directory_path)
-    pdf_file_path = generate_pdf(image_directory_path)
-    transformed_data = []
-    headers = ["Main_id", "Node_id", "Title", "Media_id", "Local_File_Path", "PDF_File_Path", "OCR_File_Path"]
-    img_pdf_pairs = zip(all_img_path, pdf_file_path,json_file_path)
-    # Correct iteration over mid_data
-    for main_id, nodes in mid_data.items():
-        for node_id, details in nodes.items():
-            if img_pdf_pairs: 
-                img_path, pdf_path, json_path = next(img_pdf_pairs)
-            row = {
-                "Main_id": main_id,
-                "Node_id": node_id,
-                "Title": details['Title'],
-                "Media_id": details['Media_id'],
-                "Local_File_Path": img_path,
-                "PDF_File_Path": pdf_path,
-                "OCR_File_Path": json_path
-            }
-            # Remove target_id if exists
-            row.pop('target_id', None)
-            transformed_data.append(row)
-    write_csv(csv_output_file, transformed_data, headers)
+# read json file to get the google vision api result from json
+def read_json_api_result(csv_output_file):
+    base_dir = os.path.expanduser(image_directory_path+'pdf')
+    if not os.path.exists(base_dir):
+        os.makedirs(base_dir)
+    pdf_file_path = []
 
-#read multiple PDF files from path
-def read_all_pdf(image_directory_path):
-    abs_path = os.path.join(image_directory_path, 'pdf')
-    pdf_extensions = ['.pdf']
-    pdf_paths = []
-    # Walk through the directory
-    for root, dirs, files in os.walk(abs_path):
-        for file in files:
-            full_path = os.path.join(root, file)
-            # Correctly check if file ends with any of the extensions in pdf_extensions
-            if any(file.endswith(ext) for ext in pdf_extensions):
-                pdf_paths.append(full_path)
-    return pdf_paths
+    data = read_csv_from_node(csv_output_file)
+    vision_api_response_file = data['OCR_File_Path']
+    image_csv_file = data['Local_File_Path']
+    for vision_api_response in range(len(vision_api_response_file)):
+        if not isinstance(vision_api_response_file[vision_api_response], float):
+            response = extract_bounding_polys(vision_api_response_file[vision_api_response])
+            img = image_csv_file[vision_api_response]
+            image_path = img.split('\\')[-1]
+            node_id = image_path.split('_')[0]
+            media_id = image_path.split('_')[1]
+            node_dir = os.path.expanduser(base_dir+'\\'+str(node_id))
+            media_dir = os.path.expanduser(node_dir+'\\'+str(media_id)+'\\')
+            if not os.path.exists(media_dir):
+                os.makedirs(media_dir)
+            pdf_file = create_pdf_with_selectable_text(media_dir, img, response, font_path)
+            pdf_file_path = pdf_file_path + [pdf_file]
+    output_csv_pdf(csv_output_file,pdf_file_path)
+
+def extract_bounding_polys(vision_api_response):
+    with open(vision_api_response) as file:
+        response = json.load(file)
+    return response
+
+# save pdf/a file into the csv_output_file
+def output_csv_pdf(csv_output_file,pdf_file_path):
+    data = read_csv_from_node(csv_output_file)
+    vision_api_response_file = data['OCR_File_Path']
+    data['PDF_File_Path'] = ''
+    count = 0
+    for vision_api_response in range(len(vision_api_response_file)):
+        if not isinstance(vision_api_response_file[vision_api_response], float):
+            data.loc[vision_api_response, 'PDF_File_Path'] = pdf_file_path[count]
+            count+=1
+    data.to_csv(csv_output_file, index=False)
 
 #Combining multiple PDF files into a single PDF
-def combine_pdf(filtered_paths, output_filename):
+def combine_pdf(target_paths, output_filename):
     pdf_writer = PyPDF2.PdfWriter()
-    for pdf_file in filtered_paths:
-        # Open the PDF file
-        with open(pdf_file, 'rb') as file:
-            pdf_reader = PyPDF2.PdfReader(file)
-            # Add all its pages to the writer object
-            for page_num in range(len(pdf_reader.pages)):
-                page = pdf_reader.pages[page_num]
-                pdf_writer.add_page(page)
+    for path in target_paths:
+        pdf_reader = PyPDF2.PdfReader(path)
+        for page_num in range(len(pdf_reader.pages)):
+            page = pdf_reader.pages[page_num]
+            pdf_writer.add_page(page)
+
+    with open(output_filename, 'wb') as out:
+        pdf_writer.write(out)
     
     # Write out the combined PDF to a new file
     with open(output_filename, 'wb') as out_file:
         pdf_writer.write(out_file)
 
-# save multiple PDF files into a single PDF
-def save_provessed_pdf(image_directory_path):
+def save_csv_combine(csv_output_file):
+    data = read_csv_from_node(csv_output_file)
+    vision_api_pdf_file = data['PDF_File_Path']
     abs_path = os.path.join(image_directory_path, 'pdf')
-    pdf_path = read_all_pdf(image_directory_path)
-    node_data = read_csv_from_node(csv_input_file)
-    nid_title_media_id = access_node(node_data)
-    node_list = []
-    path_list = []
-    for nodeid in list(nid_title_media_id.keys()):
-        filtered_paths = [path for path in pdf_path if f'\\{nodeid}\\' in path.replace('/', '\\')]
-        combine_pdf(filtered_paths, abs_path+'\\'+str(nodeid)+'\\'+str(nodeid)+'.pdf')
-        node_list = node_list + [nodeid]
-        path_list = path_list + [abs_path+'\\'+str(nodeid)+'\\'+str(nodeid)+'.pdf']
-    headers = ["Main_id", "PDF_File_Path"]
-    transformed_data = []
-    for main_id, pdf_path in zip(node_list, path_list):
-        transformed_data.append({"Main_id": main_id, "PDF_File_Path": pdf_path})
-    write_csv(csv_combine_output_file,transformed_data, headers )
 
-# combined all processed csv into one csv the formate:
-    # Main_id: node id
-    # Node_id: node children id
-    # Title: Title or book name
-    # Media_id
-    # Local_File_Path: orignal image file path
-    # PDF_File_Path: splited pdf file path
-    # OCR_File_Path: ocr json file path
-    # Combined_PDF_File_Path: combined pdf file path
-def combined_csv(csv_combine_output_file ,csv_split_output_file, csv_temp_output):
-    combine_output = pd.read_csv(csv_combine_output_file)
-    split_output = pd.read_csv(csv_split_output_file)
-    combine_output.rename(columns={'PDF_File_Path': 'Combined_PDF_File_Path'}, inplace=True)
-    merged_df = pd.merge(split_output, combine_output[['Main_id', 'Combined_PDF_File_Path']], on='Main_id', how='left')
-    headers = list(merged_df.columns)
-    with open(csv_temp_output, mode='w', newline='') as file:
-        writer = csv.DictWriter(file, fieldnames=headers)
-        writer.writeheader()  # Write the header
-        for _, row in merged_df.iterrows():
-            writer.writerow(row.to_dict())
+    for vision_api_response in range(len(vision_api_pdf_file)):
+        if isinstance(vision_api_pdf_file[vision_api_response], float):
+            target_node = str(data['Node_id'][vision_api_response])  # Convert to string here
+            # Use target_node to find all the pdfs in PDF_File_Path
+            target_paths = data[data['PDF_File_Path'].astype(str).str.contains(target_node, na=False)]
+            target_paths = target_paths.sort_values(by='PDF_File_Path')
+            target_paths = target_paths.sort_values(by='Node_id')
 
-def clean_csv(csv_temp_output,csv_final_output):
-    combine_output = pd.read_csv(csv_temp_output)
-    print(combine_output)
-    
-def output_mode():
-    download_file(csv_input_file)
-    output_csv_pdf_json(csv_input_file, csv_output_file, image_directory_path)
-    save_provessed_pdf(image_directory_path)
-    combined_csv(csv_combine_output_file ,csv_output_file, csv_temp_output)
-    print("completed")
-output_mode()
-# clean_csv(csv_temp_output,csv_final_output)
+            target_paths = target_paths['PDF_File_Path'].tolist()
+            combine_pdf(target_paths, abs_path+'\\'+str(target_node)+'\\'+str(target_node)+'.pdf')
+            data['PDF_File_Path'][vision_api_response] = abs_path+'\\'+str(target_node)+'\\'+str(target_node)+'.pdf'
+    data.to_csv(csv_output_file, index=False)
+
+
+
+def google_vision_api_run(HAVE_OCR):
+    if HAVE_OCR == False:
+        download_file(csv_input_file)
+        output_csv_json(csv_input_file, csv_output_file, image_directory_path)
+        read_json_api_result(csv_output_file)
+        save_csv_combine(csv_output_file)
+    else:
+        read_json_api_result(csv_output_file)
+        save_csv_combine(csv_output_file)
+
+google_vision_api_run(HAVE_OCR)
