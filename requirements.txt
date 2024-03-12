@@ -5,6 +5,6 @@ google-cloud-vision
 pandas
 Pillow
 reportlab
-tempfile
+temp
 requests
 pypdf2
