@@ -56,3 +56,83 @@ python google_vision_api
 ```
 
 ## Functions
+```
+read_csv_from_node(csv_input_file)
+```
+- usage: read CSV file as pandas data frame
+- input: CSV file path ('\csv_input_file.csv') 
+- outputs: pandas data frame
+
+| Node_id | Title                 | Language          |
+|---------|-----------------------|-------------------|
+| 16264   | Sushi One             | English,Japanese |
+| 16267   | Harden & L. C. Corp. | English,Chinese  |
+| 16270   | Sung Lin              | English,Chinese  |
+
+```
+access_node(node_data)
+```
+- usage: access each page from Node_id get media ID, title
+- input: pandas data frame from read_csv_from_node output
+- outputs:
+```
+{'16266': {'Media_id': '36086', 'Title': 'Sushi One - Page 1'}, 
+'16265': {'Media_id': '36085', 'Title': 'Sushi One - Page 2'}, 
+'16268': {'Media_id': '36087', 'Title': 'Harden &amp; L. C. Corp. - Page 1'}, 
+'16269': {'Media_id': '36088', 'Title': 'Harden &amp; L. C. Corp. - Page 2'}, 
+'16272': {'Media_id': '36090', 'Title': 'Sung Lin - Page 1'}, 
+'16271': {'Media_id': '36089', 'Title': 'Sung Lin - Page 2'}}
+```
+ 
+```
+process_media(nid_title_media_id)
+```
+- usage: get target ID from access_node output
+- input: dictionary with structure {node_id:{'Media_id': '36089', 'Title': 'Sung Lin - Page 2'}} 
+- outputs: 
+```
+{'16266': {'Media_id': '36086', 'Title': 'Sushi One - Page 1', 'target_id': 59809}, 
+'16265': {'Media_id': '36085', 'Title': 'Sushi One - Page 2', 'target_id': 59806}, 
+'16268': {'Media_id': '36087', 'Title': 'Harden &amp; L. C. Corp. - Page 1', 'target_id': 59812}, 
+'16269': {'Media_id': '36088', 'Title': 'Harden &amp; L. C. Corp. - Page 2', 'target_id': 59815}, 
+'16272': {'Media_id': '36090', 'Title': 'Sung Lin - Page 1', 'target_id': 59821},
+'16271': {'Media_id': '36089', 'Title': 'Sung Lin - Page 2', 'target_id': 59818}}
+```
+
+```
+process_file(mid_data)
+```
+- usage: download image from target ID
+- input: dictionary with structure {'16271': {'Media_id': '36089', 'Title': 'Sung Lin - Page 2', 'target_id': 59818}} 
+- outputs: None
+
+```
+download_file(csv_input_file)
+```
+- usage: download image helper
+- input: csv_input_file path
+- outputs: None
+
+```
+find_all_img_path(image_directory_path)
+ ```
+- usage: read all the images from directory or local path
+- input: image_directory_path (setup in config)
+- outputs: list of images path
+```
+"\n\n['C:\\Users\\zxx91\\OBJ.0_10762.jp2',
+\n'C:\\Users\\zxx91\\OBJ.0_10763.jp2', 
+\n'C:\\Users\\zxx91\\OBJ.0_10764.jp2', 
+\n'C:\\Users\\zxx91\\OBJ.0_10765.jp2', 
+\n'C:\\Users\\zxx91\\OBJ.0_10766.jp2', 
+\n'C:\\Users\\zxx91\\OBJ.0_10767.jp2']\n"
+```
+
+```
+detectText(img)
+```
+- usage: read all the images from directory or local path
+- input: image path from find_all_img_path 'C:\\Users\\zxx91\\OBJ.0_10767.jp2'
+- outputs: response JSON from Google Vision API
+![image](https://github.com/zhoux121/DSU_googleAPI/assets/21269237/d163779c-6b86-4726-a6bd-9363595b9027)
+
