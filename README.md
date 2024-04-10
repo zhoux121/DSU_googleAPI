@@ -12,23 +12,21 @@
 
 ## Installation
 
+Create new env using conda:
+```
+conda create -n <env -name>
+```
 
+Activate conda env:
+```
+conda activate <env -name>
+```
 
-Install env:
+Install requirements:
 
 ```
 pip install -r requirements.txt
 ```
-
-or in dsu-data.utsc.utoronto.ca (installed already):
-
-```
-conda activate google_vision_api
-```
-
-Uninstall:
-
-
 
 ## Usage
 Edit config.yml:
@@ -49,7 +47,7 @@ cd ~/DSU_googleAPI
 ```
 Second, activate env:
 ```
-conda activate google_vision_api
+conda activate <env -name>
 ```
 Third, run the Python code:
 ```
