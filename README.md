@@ -8,6 +8,7 @@
 <!-- BEGIN-MARKDOWN-TOC -->
 * [Installation](#installation)
 * [Usage](#usage)
+* [Functions](#functions)
 <!-- END-MARKDOWN-TOC -->
 
 ## Installation
@@ -54,4 +55,4 @@ Third, run the Python code:
 python google_vision_api
 ```
 
-
+## Functions
