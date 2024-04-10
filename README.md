@@ -8,8 +8,6 @@
 <!-- BEGIN-MARKDOWN-TOC -->
 * [Installation](#installation)
 * [Usage](#usage)
-	* [How to get OCR (json) data:](#how-to-get-ocr-json-data)
-* [How to make a searchable pdf:](#how-to-make-a-searchable-pdf)
 <!-- END-MARKDOWN-TOC -->
 
 ## Installation
