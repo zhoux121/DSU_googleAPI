@@ -437,23 +437,29 @@ def create_pdf_with_selectable_text(media_dir, image_directory_path, json_data):
         
         pdf_path = os.path.join(media_dir, temp_name)
         c = canvas.Canvas(pdf_path, pagesize=(img_width, img_height))
-        c.setFont('NotoSansCJK', 12)
         # Add the image to the PDF at its original size
         c.drawImage(temp_img_path, 0, 0, width=img_width, height=img_height)
 
         # If 'textAnnotations' is in json_data, add the text; otherwise, just save the image as is
         if 'textAnnotations' in json_data:
             texts = json_data['textAnnotations'][1:]  # Skip the first summary item
+            scale_w = img_width / img_width
+            scale_h = img_height / img_height
             for text in texts:
                 vertices = text['boundingPoly']['vertices']
                 if len(vertices) >= 4:  # Ensure there are enough points to define a rectangle
-                    x0, y0 = vertices[0]['x'], img_height - vertices[0]['y']
-                    text_height = vertices[3]['y'] - vertices[0]['y']
+                    x0, y0 = int(vertices[0]['x'] * scale_w), img_height - int(vertices[0]['y'] * scale_h) - 2
+                    start_y, end_y = vertices[0]['y'], vertices[2]['y']
+                    font_size = abs(end_y - start_y)
+                    c.setFont('NotoSansCJK', font_size)
+
+                    text_height = (int(vertices[3]['y'] * scale_h) - int(vertices[0]['y'] * scale_h)) * scale_h
                     c.setFillColorRGB(0, 0, 0, 0)
                     c.drawString(x0, y0 - text_height, text['description'])
         c.save()
         os.remove(temp_img_path)
     return pdf_path
+
 
 # read json file to get the google vision api result from json
 def read_json_api_result(csv_output_file):
